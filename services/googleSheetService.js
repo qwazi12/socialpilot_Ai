@@ -8,10 +8,20 @@ const auth = new google.auth.GoogleAuth({
 
 const sheets = google.sheets({ version: 'v4', auth });
 const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
-const RANGE = 'Sheet1!A2:M'; // Reads columns A through M
+
+// Helper to get sheet name dynamically
+async function getSheetName() {
+  const spreadsheet = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID
+  });
+  return spreadsheet.data.sheets[0].properties.title;
+}
 
 exports.getScheduledRows = async () => {
   try {
+    const sheetName = await getSheetName();
+    const RANGE = `'${sheetName}'!A2:N`; // Reads columns A through N (14 columns)
+
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: RANGE,
@@ -55,21 +65,22 @@ exports.getScheduledRows = async () => {
 
 exports.updateRow = async (rowIndex, status, notes, url = '') => {
   try {
-    // Update Status (Col H), YouTube URL (Col J), and Notes (Col M)
-    // We do three separate updates to avoid overwriting other columns
+    const sheetName = await getSheetName();
+
+    // Update Status (Col H), Platform URLs, and Notes (Col O)
 
     // 1. Update Status (H)
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Sheet1!H${rowIndex}`,
+      range: `'${sheetName}'!H${rowIndex}`,
       valueInputOption: 'RAW',
       resource: { values: [[status]] },
     });
 
-    // 2. Update Notes (M)
+    // 2. Update Notes (O - shifted due to Facebook URL column)
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Sheet1!M${rowIndex}`,
+      range: `'${sheetName}'!O${rowIndex}`,
       valueInputOption: 'RAW',
       resource: { values: [[notes]] },
     });
@@ -78,7 +89,7 @@ exports.updateRow = async (rowIndex, status, notes, url = '') => {
     if (url) {
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `Sheet1!J${rowIndex}`,
+        range: `'${sheetName}'!J${rowIndex}`,
         valueInputOption: 'RAW',
         resource: { values: [[url]] },
       });
