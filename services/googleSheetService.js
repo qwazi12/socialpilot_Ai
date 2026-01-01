@@ -1,7 +1,5 @@
-
 const { google } = require('googleapis');
 const path = require('path');
-const logger = require('./loggerService');
 
 const auth = new google.auth.GoogleAuth({
   keyFile: path.join(__dirname, '../config/googleAuth.json'),
@@ -10,73 +8,83 @@ const auth = new google.auth.GoogleAuth({
 
 const sheets = google.sheets({ version: 'v4', auth });
 const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
-const RANGE = 'Sheet1!A2:H';
+const RANGE = 'Sheet1!A2:M'; // Reads columns A through M
 
-/**
- * Reads scheduled rows from the sheet
- */
 exports.getScheduledRows = async () => {
   try {
-    logger.info('Attempting to read Google Sheet', { spreadsheetId: SPREADSHEET_ID, range: RANGE });
-    
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: RANGE,
     });
 
     const rows = response.data.values;
-    if (!rows || rows.length === 0) {
-      logger.warn('Google Sheet is empty or no data found in range');
-      return [];
-    }
+    if (!rows || rows.length === 0) return [];
 
-    logger.info(`Successfully retrieved ${rows.length} rows from sheet`);
+    return rows.map((row, index) => {
+      // Parser for "Scheduled Time" (Column I / Index 8)
+      // Expected Format in Sheet: "2025-01-01 14:00"
+      let date = '';
+      let hour = '';
 
-    return rows.map((row, index) => ({
-      rowIndex: index + 2,
-      id: row[0],
-      videoName: row[1],
-      driveLink: row[2],
-      title: row[3],
-      platforms: row[4] ? row[4].split(',').map(p => p.trim()) : [],
-      status: (row[5] || '').trim(),
-      date: row[6],
-      hour: row[7]
-    }));
+      if (row[8]) {
+        const dateTime = new Date(row[8]);
+        if (!isNaN(dateTime)) {
+          date = dateTime.toISOString().split('T')[0]; // "2025-01-01"
+          hour = dateTime.getHours(); // 14
+        }
+      }
+
+      return {
+        index: index + 2, // Row number (1-based)
+        id: row[0],
+        driveLink: row[2],
+        title: row[3],
+        description: row[4], // New: Description
+        tags: row[5],        // New: Tags
+        platforms: row[6],   // New: Platforms is now Col G
+        status: row[7],      // New: Status is Col H
+        date: date,
+        hour: hour
+      };
+    });
   } catch (error) {
-    logger.error('Failed to read Google Sheet', { spreadsheetId: SPREADSHEET_ID }, error);
-    throw error;
+    console.error('Sheet Read Error:', error.message);
+    return [];
   }
 };
 
-/**
- * Updates status and notes columns for a specific row
- */
-exports.updateRow = async (rowIndex, status, notes = '') => {
+exports.updateRow = async (rowIndex, status, notes, url = '') => {
   try {
-    const statusRange = `Sheet1!F${rowIndex}`;
-    const notesRange = `Sheet1!I${rowIndex}`;
+    // Update Status (Col H), YouTube URL (Col J), and Notes (Col M)
+    // We do three separate updates to avoid overwriting other columns
 
-    logger.info(`Updating row ${rowIndex} status to: ${status}`, { notes });
-
+    // 1. Update Status (H)
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: statusRange,
+      range: `Sheet1!H${rowIndex}`,
       valueInputOption: 'RAW',
       resource: { values: [[status]] },
     });
 
-    if (notes) {
+    // 2. Update Notes (M)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Sheet1!M${rowIndex}`,
+      valueInputOption: 'RAW',
+      resource: { values: [[notes]] },
+    });
+
+    // 3. If we have a URL, Update YouTube URL (J)
+    if (url) {
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: notesRange,
+        range: `Sheet1!J${rowIndex}`,
         valueInputOption: 'RAW',
-        resource: { values: [[notes]] },
+        resource: { values: [[url]] },
       });
     }
-    
-    logger.info(`Row ${rowIndex} updated successfully`);
+
   } catch (error) {
-    logger.error(`Failed to update row ${rowIndex}`, { status, notes }, error);
+    console.error('Sheet Update Error:', error.message);
   }
 };

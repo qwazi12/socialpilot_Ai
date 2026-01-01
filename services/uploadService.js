@@ -10,13 +10,23 @@ const BASE_URL = 'https://api.upload-post.com/api';
 /**
  * Posts video stream and metadata to the Upload-Post API
  */
-exports.uploadVideo = async (videoStream, { title, platforms }) => {
+exports.uploadVideo = async (videoStream, { title, description, tags, platforms }) => {
   const form = new FormData();
-  
+
   form.append('user', USER_ID);
   form.append('video', videoStream, { filename: 'content.mp4' });
   form.append('title', title);
-  
+
+  // Add description if provided
+  if (description) {
+    form.append('description', description);
+  }
+
+  // Add tags if provided
+  if (tags) {
+    form.append('tags', tags);
+  }
+
   platforms.forEach(p => {
     form.append('platform[]', p.toLowerCase().trim());
   });
@@ -38,7 +48,7 @@ exports.uploadVideo = async (videoStream, { title, platforms }) => {
   } catch (error) {
     const errorData = error.response ? error.response.data : 'No response body';
     const status = error.response ? error.response.status : 'No status';
-    
+
     const context = {
       title,
       platforms,
@@ -47,12 +57,12 @@ exports.uploadVideo = async (videoStream, { title, platforms }) => {
     };
 
     logger.error(`Upload-Post API failure for: "${title}"`, context, error);
-    
+
     // Construct a detailed message for the Google Sheet
-    const errorMessage = error.response 
-      ? `API Error (${status}): ${JSON.stringify(errorData).substring(0, 100)}` 
+    const errorMessage = error.response
+      ? `API Error (${status}): ${JSON.stringify(errorData).substring(0, 100)}`
       : `Network Error: ${error.message}`;
-      
+
     throw new Error(errorMessage);
   }
 };

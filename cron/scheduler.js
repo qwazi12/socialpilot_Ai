@@ -11,7 +11,7 @@ const logger = require('../services/loggerService');
 const runJob = async () => {
   const startTime = Date.now();
   logger.info('--- Automation Run Started ---');
-  
+
   let processedCount = 0;
   let successCount = 0;
   let failureCount = 0;
@@ -19,7 +19,7 @@ const runJob = async () => {
   try {
     const rows = await googleSheetService.getScheduledRows();
     const now = new Date();
-    
+
     for (const row of rows) {
       if (row.status.toLowerCase() === 'scheduled') {
         const scheduledTimeStr = `${row.date}T${row.hour}:00`;
@@ -27,27 +27,33 @@ const runJob = async () => {
 
         if (scheduledDate <= now) {
           processedCount++;
-          logger.info(`Processing due post: "${row.title}"`, { rowIndex: row.rowIndex, scheduledTime: scheduledTimeStr });
-          
+          logger.info(`Processing due post: "${row.title}"`, { index: row.index, scheduledTime: scheduledTimeStr });
+
           try {
             // 1. Get readable stream from Drive
             const videoStream = await driveService.getFileStream(row.driveLink);
-            
+
             // 2. Upload to Social Platforms
             const result = await uploadService.uploadVideo(videoStream, {
               title: row.title,
+              description: row.description,
+              tags: row.tags,
               platforms: row.platforms
             });
-            
-            // 3. Update Sheet on Success
-            await googleSheetService.updateRow(row.rowIndex, 'Posted', `Success! ID: ${result.id || 'N/A'}`);
+
+            // 3. Update Sheet on Success with URL
+            // This assumes the API returns a 'url' field. 
+            // If it only returns an ID, we construct the link.
+            const postUrl = result.url || `https://upload-post.com/view/${result.id}`;
+
+            await googleSheetService.updateRow(row.index, 'Posted', 'Auto-posted successfully', postUrl);
             successCount++;
-            
+
           } catch (error) {
             // 4. Update Sheet on Failure
-            await googleSheetService.updateRow(row.rowIndex, 'Failed', error.message);
+            await googleSheetService.updateRow(row.index, 'Failed', error.message);
             failureCount++;
-            logger.warn(`Post failed for "${row.title}"`, { rowIndex: row.rowIndex, error: error.message });
+            logger.warn(`Post failed for "${row.title}"`, { index: row.index, error: error.message });
           }
         }
       }
