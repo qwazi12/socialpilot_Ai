@@ -1,0 +1,7 @@
+{
+  "name": "Copy of SocialPilot AI",
+  "description": "Multi-platform social media scheduler and automation tool using Upload-Post API and Gemini AI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
