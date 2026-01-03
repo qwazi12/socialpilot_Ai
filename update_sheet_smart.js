@@ -278,6 +278,7 @@ async function main() {
         console.log(`\n🆕 New videos found: ${newVideos.length}`);
 
         // Step 5: Round-robin distribution for new videos
+        let newRows = [];
         if (newVideos.length > 0) {
             console.log(`\n🔄 Step 4: Applying round-robin to new videos...`);
 
@@ -296,38 +297,38 @@ async function main() {
             );
 
             console.log(`   ✓ ${roundRobinNew.length} videos in round-robin order`);
-
-            // Step 6: Build final main sheet
-            console.log(`\n✨ Step 5: Updating main sheet...`);
-
-            const newRows = roundRobinNew.map(v => buildRow(v));
-            const readyRowsData = readyRows.map(r => [
-                r.fileId, r.fileName, r.driveLink, r.title,
-                r.description, r.tags, r.status, r.notes
-            ]);
-
-            const finalMainData = [
-                ...readyRowsData,  // Ready to post first
-                ...newRows         // New reviews after
-            ];
-
-            // Clear and rewrite main sheet
-            await sheets.spreadsheets.values.clear({
-                spreadsheetId: SPREADSHEET_ID,
-                range: `'${MAIN_SHEET_NAME}'!A2:H`
-            });
-
-            if (finalMainData.length > 0) {
-                await sheets.spreadsheets.values.update({
-                    spreadsheetId: SPREADSHEET_ID,
-                    range: `'${MAIN_SHEET_NAME}'!A2`,
-                    valueInputOption: 'RAW',
-                    resource: { values: finalMainData }
-                });
-            }
-
-            console.log(`   ✓ Main sheet updated`);
+            newRows = roundRobinNew.map(v => buildRow(v));
         }
+
+        // Step 6: Build final main sheet (ALWAYS run this, even if no new videos)
+        console.log(`\n✨ Step 5: Updating main sheet...`);
+
+        const readyRowsData = readyRows.map(r => [
+            r.fileId, r.fileName, r.driveLink, r.title,
+            r.description, r.tags, r.status, r.notes
+        ]);
+
+        const finalMainData = [
+            ...readyRowsData,  // Ready to post first
+            ...newRows         // New reviews after (empty if no new videos)
+        ];
+
+        // Clear and rewrite main sheet (removes Posted items!)
+        await sheets.spreadsheets.values.clear({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `'${MAIN_SHEET_NAME}'!A2:H`
+        });
+
+        if (finalMainData.length > 0) {
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: SPREADSHEET_ID,
+                range: `'${MAIN_SHEET_NAME}'!A2`,
+                valueInputOption: 'RAW',
+                resource: { values: finalMainData }
+            });
+        }
+
+        console.log(`   ✓ Main sheet updated`);
 
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
