@@ -40,6 +40,14 @@ async function fetchVideosFromFolder(folderId, folderNumber) {
     try {
         console.log(`📂 Fetching videos from Folder ${folderNumber}...`);
 
+        // Get folder name
+        const folderInfo = await drive.files.get({
+            fileId: folderId,
+            fields: 'name'
+        });
+        const folderName = folderInfo.data.name;
+
+        // Get videos in folder
         const response = await drive.files.list({
             q: `'${folderId}' in parents and trashed=false and (mimeType contains 'video/' or name contains '.mp4' or name contains '.mov' or name contains '.avi')`,
             fields: 'files(id, name)',
@@ -47,12 +55,13 @@ async function fetchVideosFromFolder(folderId, folderNumber) {
         });
 
         const videos = response.data.files || [];
-        console.log(`   ✓ Found ${videos.length} videos`);
+        console.log(`   ✓ Found ${videos.length} videos in "${folderName}"`);
 
         return videos.map(file => ({
             fileId: file.id,
             fileName: file.name,
-            folderNumber: folderNumber
+            folderNumber: folderNumber,
+            folderName: folderName
         }));
     } catch (error) {
         console.error(`   ❌ Error accessing Folder ${folderNumber}:`, error.message);
@@ -128,7 +137,7 @@ function buildSheetRows(videos) {
         DESCRIPTION_TEMPLATE,                                      // Description
         TAGS,                                                      // Tags
         'Review',                                                  // Status
-        ''                                                         // Notes
+        `Source: ${video.folderName}`                              // Notes (folder name)
     ]);
 }
 
