@@ -213,7 +213,7 @@ async function main() {
 
         // Categorize existing rows
         const postedRows = mainRows.filter(r => r.status === 'Posted');
-        const readyRows = mainRows.filter(r => r.status === 'Ready to post');
+        const keepRows = mainRows.filter(r => r.status !== 'Posted'); // Keep everything except Posted!
 
         // Track all existing file IDs (from both sheets)
         const existingFileIds = new Set([
@@ -223,7 +223,7 @@ async function main() {
 
         console.log(`\n📊 Current status:`);
         console.log(`   Posted (to archive): ${postedRows.length}`);
-        console.log(`   Ready to post (preserve): ${readyRows.length}`);
+        console.log(`   Preserved (Ready/Review/Error): ${keepRows.length}`);
         console.log(`   Total tracked IDs: ${existingFileIds.size}`);
 
         // Step 2: Archive posted videos
@@ -303,14 +303,14 @@ async function main() {
         // Step 6: Build final main sheet (ALWAYS run this, even if no new videos)
         console.log(`\n✨ Step 5: Updating main sheet...`);
 
-        const readyRowsData = readyRows.map(r => [
+        const keepRowsData = keepRows.map(r => [
             r.fileId, r.fileName, r.driveLink, r.title,
             r.description, r.tags, r.status, r.notes
         ]);
 
         const finalMainData = [
-            ...readyRowsData,  // Ready to post first
-            ...newRows         // New reviews after (empty if no new videos)
+            ...keepRowsData,  // All non-Posted items (Ready/Review/Error)
+            ...newRows        // New reviews after (empty if no new videos)
         ];
 
         // Clear and rewrite main sheet (removes Posted items!)
@@ -337,11 +337,11 @@ async function main() {
         console.log('═'.repeat(70));
         console.log(`\n📊 Summary:`);
         console.log(`   📦 Archived: ${postedRows.length} posted videos`);
-        console.log(`   ✅ Preserved: ${readyRows.length} ready-to-post videos`);
+        console.log(`   ✅ Preserved: ${keepRows.length} non-posted videos`);
         console.log(`   🆕 Added: ${newVideos.length} new videos`);
         console.log(`   ⏱️  Duration: ${duration}s`);
         console.log(`\n📋 Sheets:`);
-        console.log(`   Main ("${MAIN_SHEET_NAME}"): ${readyRows.length + newVideos.length} rows`);
+        console.log(`   Main ("${MAIN_SHEET_NAME}"): ${keepRows.length + newVideos.length} rows`);
         console.log(`   Archive ("${ARCHIVE_SHEET_NAME}"): ${archiveRows.length + postedRows.length} rows`);
         console.log(`\n🎯 Next:`);
         console.log(`   1. Review new videos in main sheet`);
