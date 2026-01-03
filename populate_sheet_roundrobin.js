@@ -97,17 +97,22 @@ function createRoundRobinArray(folder1, folder2, folder3, folder4) {
 
 /**
  * Format filename into clean title
+ * Removes: extensions, video IDs, tracking codes, numbers
  * Examples:
+ *   Frank Sheeran Btpv38uiw1u.mp4 → Frank Sheeran
+ *   Reacher [ghtjweziqu4].mov → Reacher
  *   dance_trend_1.mp4 → Dance Trend
- *   epic_fail_2023.mov → Epic Fail
- *   funny-cat-video_final_v3.mp4 → Funny Cat Video Final
  */
 function formatTitle(filename) {
     // Remove file extension
     let title = filename.replace(/\.[^/.]+$/, '');
 
+    // Remove random alphanumeric codes (YouTube/TikTok IDs) - min 10 chars
+    // Matches: Btpv38uiw1u, [ghtjweziqu4], 1vp9uuur2u, etc.
+    title = title.replace(/\s*\[?[a-zA-Z0-9]{10,}\]?\s*$/g, '');
+
     // Remove trailing numbers and common suffixes (v1, v2, final, etc.)
-    title = title.replace(/[_-]*(v?\d+|final|copy|edit|updated|new|draft|test)$/gi, '');
+    title = title.replace(/[_-]*(v?\d+|final|copy|edit|updated|new|draft|test)\s*$/gi, '');
 
     // Replace underscores and hyphens with spaces
     title = title.replace(/[_-]+/g, ' ');
@@ -229,6 +234,7 @@ async function main() {
         console.log(`\n📊 Results:`);
         console.log(`   Total rows added: ${sheetRows.length}`);
         console.log(`   All statuses set to: "Review"`);
+        console.log(`   Titles cleaned (removed video IDs)`);
         console.log(`   Duration: ${duration}s`);
         console.log(`\n📋 Google Sheet:`);
         console.log(`   https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`);
